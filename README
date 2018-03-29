@@ -1,0 +1,16 @@
+
+chinh dia chi IP --> ip server
+
+Step1: 
+	mkdir /data2
+	sudo chmod 777 /data2/
+Step2:
+Step3:
+	go to  dir run-database: run ./bsg.. nozk; run ./sim..server nozk
+	go to dir server: run main.go, pooldb.go
+Step4:
+	go to dir client: run main.go, menu.go
+
+====>> test further
+Ok! Done
+

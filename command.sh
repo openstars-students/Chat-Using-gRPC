@@ -1,0 +1,1 @@
+$(cd ~/go/src/example/gRPC-Chat/Chat_gRPC/run-database/session/ ;./simplesessionserver nozk) | $(cd ~/go/src/example/gRPC-Chat/Chat_gRPC/run-database/bisget/ ;./bsgdataservice_map nozk) #| $(sleep 1) | $(cd ~/go/src/example/gRPC-Chat/Chat_gRPC/server/ ;go run main.go pooldb.go)
