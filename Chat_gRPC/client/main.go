@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	pb "example/gRPC-Chat/Chat_gRPC"
+	pb "example/Chat-Using-gRPC/Chat_gRPC"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"bufio"
@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	address = "127.0.0.1:8000"
+	address = "192.168.43.230:8000"
 )
 
 var sessionkey string
@@ -98,16 +98,15 @@ func singeChat(c pb.ChatgRPCClient){
 	to_id,_ := c.GetId(context.Background(),&req)
 
 	if to_id.GetCheck() {
-
 		var req_cid pb.Request
-		req_cid.Id = to_id.GetId()
+		req_cid.Request = to_id.GetId()
 		req_cid.Sessionkey = sessionkey
 
 		//lay idconversation cua ban va nguoi nhan
 		cid, _ := c.CreateConversation(context.Background(), &req_cid)
 
 		//cid := "1"
-		fmt.Println("cid : ", cid)
+		//fmt.Println("cid : ", cid)
 		var username pb.Request
 		username.Request = to_id.GetId()
 		username.Sessionkey = sessionkey
@@ -203,6 +202,8 @@ func runLogin(c pb.ChatgRPCClient) {
 					singeChat(c)
 				case "2":
 					createGroup(c)
+				case "3":
+					joinGroup(c)
 				case "4":
 					runLogout(c)
 					return
@@ -210,6 +211,9 @@ func runLogin(c pb.ChatgRPCClient) {
 					runGetListUser(c)
 				case "7":
 					runLoadAllMessOnCid(c)
+				case "8":
+					runAddUidToConversation(c)
+
 
 				}
 			}
@@ -284,23 +288,26 @@ func receiveMessages(stream pb.ChatgRPC_RouteChatClient, mailbox chan pb.Message
 	}
 }
 func createGroup(c pb.ChatgRPCClient){
-	fmt.Printf("Nhap ten cac ban be: ")
-	var friendName string
-	friendName = "tuan, huyen, khanh, nam"
-	listFriendName := strings.Split(friendName, " ")
 
-	var listFriend []string
-	listFriend = []string{}
+	fmt.Printf("Nhap id cac ban be: ")
+	reader := bufio.NewReader(os.Stdin)
+	grouper, _ := reader.ReadString('\n')
+	grouper = strings.TrimSpace(grouper)
 
-	for i,name := range listFriendName{
-		var req pb.Request
-		req.Request = name
-		req.Sessionkey = sessionkey
-		//lay id cua nguoi nhan
-		to_id,_ := c.GetId(context.Background(),&req)
-		listFriend[i] = to_id.GetId()
-	}
+	var req_cid pb.Request
+	req_cid.Request = grouper
+	req_cid.Sessionkey = sessionkey
+	gid, _ := c.CreateConversation(context.Background(), &req_cid)
+	fmt.Println("gid: ", gid)
+}
+func joinGroup(c pb.ChatgRPCClient){
 
+	fmt.Printf("Nhap gid: ")
+	reader := bufio.NewReader(os.Stdin)
+	gid, _ := reader.ReadString('\n')
+	gid = strings.TrimSpace(gid)
+
+	chat(c, "", gid)
 }
 func runGetListUser(c pb.ChatgRPCClient){
 
@@ -314,6 +321,32 @@ func runGetListUser(c pb.ChatgRPCClient){
 	}
 	for i:=0;i<len(lstUser.GetAlluser());i++{
 		fmt.Println("Id: ",lstUser.GetAlluser()[i].GetUid()," >> ",lstUser.GetAlluser()[i].GetUsername(), " Active: ", lstUser.GetAlluser()[i].GetActive())
+	}
+
+}
+func runAddUidToConversation(c pb.ChatgRPCClient){
+	var req  pb.ConversationDetail
+
+	fmt.Printf("Nhap uid: ")
+	reader := bufio.NewReader(os.Stdin)
+	uid, _ := reader.ReadString('\n')
+	uid = strings.TrimSpace(uid)
+
+	s_uid := strings.Split(uid, " ")
+	fmt.Printf("Nhap cid: ")
+	reader = bufio.NewReader(os.Stdin)
+	cid, _ := reader.ReadString('\n')
+	cid = strings.TrimSpace(cid)
+
+	req.Cid = cid
+	req.Uid = s_uid
+	req.Sessionkey = sessionkey
+
+	check, _ := c.AddUidToConversation(context.Background(),&req)
+	if check.GetCheck(){
+		fmt.Println("add success")
+	}else{
+		fmt.Println("dont success")
 	}
 
 }

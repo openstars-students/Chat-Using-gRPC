@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"log"
 	"net"
-	pb "example/gRPC-Chat/Chat_gRPC"
+	pb "example/Chat-Using-gRPC/Chat_gRPC"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
-	bs "example/gRPC-Chat/Chat_gRPC/thrift/gen-go/generic"
-	idbs "example/gRPC-Chat/Chat_gRPC/thrift/gen-go/idgenerate"
-	sessionbs "example/gRPC-Chat/Chat_gRPC/thrift/gen-go/session"
+	bs "example/Chat-Using-gRPC/Chat_gRPC/thrift/gen-go/generic"
+	idbs "example/Chat-Using-gRPC/Chat_gRPC/thrift/gen-go/idgenerate"
+	sessionbs "example/Chat-Using-gRPC/Chat_gRPC/thrift/gen-go/session"
 	"crypto/sha1"
 	"io"
 	"sync"
@@ -18,7 +18,7 @@ import (
 	"strings"
 )
 
-const address  ="127.0.0.1:8000"
+const address  ="159.89.205.103:8000"
 
 type UserService struct{}
 
@@ -44,11 +44,11 @@ func (s *UserService) Register(ctx context.Context, in *pb.User) (*pb.Response, 
 	fmt.Println("Register")
 
 	//client: bigset data
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 
 	//idclient: bigset id
-	idclient,_ := mpid.Get("127.0.0.1", "18405").Get()
+	idclient,_ := mpid.Get("159.89.205.103", "18405").Get()
 	defer idclient.BackToPool()
 
 	username := in.GetUsername()
@@ -88,7 +88,7 @@ func (s *UserService) Register(ctx context.Context, in *pb.User) (*pb.Response, 
 func (s *UserService) Login(ctx context.Context, in *pb.UserLogin) (*pb.Response, error) {
 
 	fmt.Println("Login: ")
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	//get username, password
 	username := in.GetUsername()
@@ -121,7 +121,7 @@ func (s *UserService) Login(ctx context.Context, in *pb.UserLogin) (*pb.Response
 					fmt.Println(c)
 
 					//tao sessionkey
-					ssclient, _ := mpcreatekey.Get("127.0.0.1", "19175").Get()
+					ssclient, _ := mpcreatekey.Get("159.89.205.103", "19175").Get()
 					defer ssclient.BackToPool()
 					//session,err := client.Client.(*sessionbs.TSimpleSessionService_WClient).CreateSession(&c)
 					//chuyen keyid into uid type i64
@@ -156,7 +156,7 @@ func (s *UserService) Login(ctx context.Context, in *pb.UserLogin) (*pb.Response
 func (s *UserService) Logout(ctx context.Context, in *pb.Request) (*pb.Response, error){
 	fromid,_ := checkSessionKey(in.GetSessionkey())
 	if fromid!=0 {
-		client, _ := mp.Get("127.0.0.1", "18407").Get()
+		client, _ := mp.Get("159.89.205.103", "18407").Get()
 		defer client.BackToPool()
 		//client.Client.(*bs.TStringBigSetKVServiceClient).BsRemoveItem("Active", []byte(string(fromid)))
 		//a,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Active", []byte(fromid))
@@ -171,7 +171,7 @@ func (s *UserService) Logout(ctx context.Context, in *pb.Request) (*pb.Response,
 
 //truyen vao 1 key username, check xem co ton tai hay khong
 func checkName(username string)bool{
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 
 	count := getCurrentId("GenIdUserName")
@@ -191,7 +191,7 @@ func checkName(username string)bool{
 }
 //truyen vao 1 Phone, kiem tra xem da duoc dang ki chua
 func checkPhone(phone string)bool{
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	count := getCurrentId("GenIdUserName")
 	//neu nhu co thi return false
@@ -208,7 +208,7 @@ func checkPhone(phone string)bool{
 }
 //truyen vao 1 email, check xem da duoc dang ki chua
 func checkEmail(email string)bool{
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 
 	count := getCurrentId("GenIdUserName")
@@ -226,7 +226,7 @@ func checkEmail(email string)bool{
 }
 //truyen vao sessionkey, tra ve stt, username
 func checkSessionKey(sessionkey string) (int64, string){
-	ssclient, _ := mpcreatekey.Get("127.0.0.1", "19175").Get()
+	ssclient, _ := mpcreatekey.Get("159.89.205.103", "19175").Get()
 	defer ssclient.BackToPool()
 	//fmt.Println("session: ", sessionkey)
 
@@ -251,7 +251,7 @@ func list_Items_Common(arr []string,arr2 []string)  []string{
 //tra ve uid chung
 func checkIdConversation(lst []string) string{
 
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	count,_ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("IdConversation")
 	cid_common := ""
@@ -271,59 +271,112 @@ func checkIdConversation(lst []string) string{
 	}
 	return cid_common
 }
-//truyen vao 2 uid, tra ve 1 cid
+//truyen vao 2 uid hoac danh sach cac id, tra ve 1 cid
 func (s *UserService) CreateConversation(ctx context.Context, in *pb.Request) (*pb.Response, error){
+
 	fromid,_ := checkSessionKey(in.GetSessionkey())
 	if fromid!=0 {
-		idreceiver := in.GetId()
-
-		client, _ := mp.Get("127.0.0.1", "18407").Get()
+		client, _ := mp.Get("159.89.205.103", "18407").Get()
 		defer client.BackToPool()
 		//
-		idclient,_ := mpid.Get("127.0.0.1", "18405").Get()
+		idclient, _ := mpid.Get("159.89.205.103", "18405").Get()
 		defer idclient.BackToPool()
 
-		//lay ra cid cua 2 uid
-		lst_cid1 := get_cidConversationDetail(idreceiver)
-		lst_cid2 := get_cidConversationDetail(strconv.FormatInt(fromid,10))
+		idreceiver := in.GetRequest()
 
-		fmt.Println(lst_cid1)
-		fmt.Println(lst_cid2)
-		//lay ra list cid chung
-		lst_common := list_Items_Common(lst_cid1, lst_cid2)
-		//lay ra cid chung
-		get_cid := checkIdConversation(lst_common)
+		s := strings.Split(idreceiver, " ")
+		if len(s) == 1 {
+			fmt.Println("s[0]:= ",s[0])
+			fmt.Println("idreceiver: ",idreceiver)
 
-		if get_cid == "" {
-			//gen id Conversation
-			idclient.Client.(*idbs.TGeneratorClient).CreateGenerator("GenIdConversation")
-			cid := getValue("GenIdConversation")
+			client, _ := mp.Get("159.89.205.103", "18407").Get()
+			defer client.BackToPool()
+			//
+			idclient, _ := mpid.Get("159.89.205.103", "18405").Get()
+			defer idclient.BackToPool()
 
-			//gen id conversationdetail
-			//add uid, cid vao conversation lan 1
-			idclient.Client.(*idbs.TGeneratorClient).CreateGenerator("GenIdConversationDetail")
-			cdid := getValue("GenIdConversationDetail")
+			//lay ra cid cua 2 uid
+			lst_cid1 := get_cidConversationDetail(s[0])
+			lst_cid2 := get_cidConversationDetail(strconv.FormatInt(fromid, 10))
 
-			client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdConversation", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(strconv.Itoa(int(cid)))})
-			client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdMember", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(strconv.Itoa(int(fromid)))})
+			fmt.Println(lst_cid1)
+			fmt.Println(lst_cid2)
+			//lay ra list cid chung
+			lst_common := list_Items_Common(lst_cid1, lst_cid2)
+			//lay ra cid chung
+			get_cid := checkIdConversation(lst_common)
 
-			//gen id conversationdetail
-			//add uid, cid vao conversation lan 2
-			cdid = getValue("GenIdConversationDetail")
-			client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdConversation", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(strconv.Itoa(int(cid)))})
-			client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdMember", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(idreceiver)})
+			if get_cid == "" {
+				//gen id Conversation
+				idclient.Client.(*idbs.TGeneratorClient).CreateGenerator("GenIdConversation")
+				cid := getValue("GenIdConversation")
 
-			return &pb.Response{Id: strconv.Itoa(int(cid)), Check: true}, nil
+				//gen id conversationdetail
+				//add uid, cid vao conversation lan 1
+				idclient.Client.(*idbs.TGeneratorClient).CreateGenerator("GenIdConversationDetail")
+				cdid := getValue("GenIdConversationDetail")
+
+				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdConversation", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(strconv.Itoa(int(cid)))})
+				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdMember", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(strconv.Itoa(int(fromid)))})
+
+				//gen id conversationdetail
+				//add uid, cid vao conversation lan 2
+				cdid = getValue("GenIdConversationDetail")
+				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdConversation", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(strconv.Itoa(int(cid)))})
+				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdMember", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(idreceiver)})
+
+				return &pb.Response{Id: strconv.Itoa(int(cid)), Check: true}, nil
+			} else {
+				return &pb.Response{Id: get_cid, Check: true}, nil
+			}
 		}else{
-			return &pb.Response{Id: get_cid, Check: true}, nil
+			//fmt.Println("group")
+				//gen id Conversation
+				idclient.Client.(*idbs.TGeneratorClient).CreateGenerator("GenIdConversation")
+				cid := getValue("GenIdConversation")
+
+				//gen id conversationdetail
+				//add uid, cid vao conversation lan 1
+				idclient.Client.(*idbs.TGeneratorClient).CreateGenerator("GenIdConversationDetail")
+				cdid := getValue("GenIdConversationDetail")
+
+				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdConversation", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(strconv.Itoa(int(cid)))})
+				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdMember", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(strconv.Itoa(int(fromid)))})
+
+				//gen id conversationdetail
+				//add uid, cid vao conversation lan 2
+				for _, uid := range s {
+					cdid = getValue("GenIdConversationDetail")
+					//fmt.Println("id in group: ", uid)
+					client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdConversation", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(strconv.Itoa(int(cid)))})
+					client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdMember", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(uid)})
+				}
+				return &pb.Response{Id: strconv.Itoa(int(cid)), Check: true}, nil
 		}
 	}
 	return &pb.Response{Check:false}, nil
 }
 
-//tuyen vao uid, cid, tra ve true or false
-func (s *UserService) AddUidToConversation(ctx context.Context, in *pb.ConversationDetail)(*pb.Response, error){
-	return &pb.Response{},nil
+//tuyen vao n uid, cid, tra ve true or false
+func (s *UserService) AddUidToConversation(ctx context.Context, in *pb.ConversationDetail)(*pb.Response, error) {
+
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
+	defer client.BackToPool()
+	fromid, _ := checkSessionKey(in.GetSessionkey())
+
+	if fromid != 0 {
+
+		s := in.GetUid()
+		for _, uid := range s {
+			cdid := getValue("GenIdConversationDetail")
+			//fmt.Println("id in group: ", uid)
+			client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdConversation", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(in.GetCid())})
+			client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("IdMember", &bs.TItem{[]byte(strconv.Itoa(int(cdid))), []byte(uid)})
+		}
+		return &pb.Response{Check: true}, nil
+	} else {
+		return &pb.Response{Check:false}, nil
+	}
 }
 
 //truyen vao 1 uid, tra ve list cid
@@ -332,7 +385,7 @@ func (s *UserService)GetAllConversation(ctx context.Context, in *pb.Request)(*pb
 }
 
 func getMessValue(cid string){
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	count,_ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("Content")
 	for i:=1; i<=int(count); i++{
@@ -359,7 +412,7 @@ func getMessValue(cid string){
 //load tat ca cac tin nhan chua duoc nhan
 //truyen vao sessionkey
 func (s *UserService)LoadWaittingMess(ctx context.Context, in *pb.Request)(*pb.WaittingMessage, error){
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	uid,_ := checkSessionKey(in.GetSessionkey())
 	count,_ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("Content")
@@ -380,31 +433,34 @@ func (s *UserService)LoadWaittingMess(ctx context.Context, in *pb.Request)(*pb.W
 				toid, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("ToId", []byte(key))
 				ToId := string(toid.Item.Value[:])
 				//check status message
-				checkmess, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("CheckMess", []byte(key))
-				CheckMess := string(checkmess.Item.Value[:])
-				//neu ToId == Uid va status mess chua duoc gui
-				if strconv.Itoa(int(uid)) == ToId && CheckMess == "0" {
-					fmt.Println("i= ", i)
-					fmt.Println(" dem", dem)
-					//lay content
-					content,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Content", []byte(key))
-					m.Content = string(content.Item.Value[:])
-					//lay time
-					createdtime, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("MessCreatedTime", []byte(key))
-					m.CreatedTime = string(createdtime.Item.Value[:])
-					//lay fromname
-					fromname, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("FromName", []byte(key))
-					m.FromName = string(fromname.Item.Value[:])
-					//thuoc cid nao
-					cid, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid", []byte(key))
-					m.Cid = string(cid.Item.Value[:])
+				check,_ = client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("CheckMess", []byte(key))
+				if check.GetExisted() {
+					checkmess, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("CheckMess", []byte(key))
+					CheckMess := string(checkmess.Item.Value[:])
+					//neu ToId == Uid va status mess chua duoc gui
+					if strconv.Itoa(int(uid)) == ToId && CheckMess == "0" {
+						fmt.Println("i= ", i)
+						fmt.Println(" dem", dem)
+						//lay content
+						content, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Content", []byte(key))
+						m.Content = string(content.Item.Value[:])
+						//lay time
+						createdtime, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("MessCreatedTime", []byte(key))
+						m.CreatedTime = string(createdtime.Item.Value[:])
+						//lay fromname
+						fromname, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("FromName", []byte(key))
+						m.FromName = string(fromname.Item.Value[:])
+						//thuoc cid nao
+						cid, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid", []byte(key))
+						m.Cid = string(cid.Item.Value[:])
 
-					client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("CheckMess", &bs.TItem{[]byte(key),[]byte("1")})
+						client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("CheckMess", &bs.TItem{[]byte(key), []byte("1")})
 
-					mess = append(mess, m)
+						mess = append(mess, m)
 
-					lstmess =append(lstmess, &mess[dem])
-					dem ++
+						lstmess = append(lstmess, &mess[dem])
+						dem ++
+					}
 				}
 			}
 		}
@@ -413,54 +469,8 @@ func (s *UserService)LoadWaittingMess(ctx context.Context, in *pb.Request)(*pb.W
 }
 
 //tra ve tat ca cac tin nhan theo Cid
-/*
-func (s *UserService) LoadAllMess(ctx context.Context, in *pb.Request) (*pb.AllMessages, error){
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
-	defer client.BackToPool()
-	uid,_ := checkSessionKey(in.GetSessionkey())
-	count,_ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("Content")
-
-	mess := []pb.Message{}
-	var m pb.Message
-	lstmess := []*pb.Message{}
-
-	if uid != 0 {
-		//Mess,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetSlice("Content",0, int32(count))
-		dem :=0
-		for i := 1; i<=int(count); i++ {
-			key := strconv.Itoa(i)
-			checkCid, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("Cid", []byte(key))
-			if checkCid.GetExisted() {
-				//get cid
-				Cid, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid", []byte(key))
-				cid := string(Cid.Item.Value[:])
-
-				if cid == in.GetRequest(){
-					//lay content
-					content, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Content", []byte(key))
-					m.Content = string(content.Item.Value[:])
-					//lay time
-					createdtime, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("MessCreatedTime", []byte(key))
-					m.CreatedTime = string(createdtime.Item.Value[:])
-					//lay fromname
-					fromname, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("FromName", []byte(key))
-					m.FromName = string(fromname.Item.Value[:])
-
-					mess = append(mess, m)
-					lstmess = append(lstmess, &mess[dem])
-					dem ++
-				}
-			}
-		}
-		return &pb.AllMessages{Allmess:lstmess}, nil
-	} else {return &pb.AllMessages{Allmess:lstmess }, nil}
-
-}
-*/
-
-//tra ve tat ca cac tin nhan theo Cid
 func (s *UserService) LoadAllMessOnCid(ctx context.Context, in *pb.Request) (*pb.AllMessages, error) {
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	uid, _ := checkSessionKey(in.GetSessionkey())
 	//count, _ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("Content")
@@ -503,7 +513,7 @@ func (s *UserService) AddFriend(ctx context.Context, in *pb.Request) ( *pb.Respo
 //lay danh sach tat ca user
 func (s *UserService) GetListUser(ctx context.Context, in *pb.Request)(*pb.AllInfoUser, error) {
 
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	uid,_ := checkSessionKey(in.GetSessionkey())
 	count,_ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("UserName")
@@ -548,7 +558,7 @@ func (s *UserService) GetListFriend(ctx context.Context, in *pb.Request)(*pb.All
 //truyen vao username, tra ve uid
 func(s *UserService) GetId(ctx context.Context, req *pb.Request)(*pb.Response, error) {
 
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	uid, _ := checkSessionKey(req.GetSessionkey())
 	if uid != 0 {
@@ -567,10 +577,10 @@ func(s *UserService) GetId(ctx context.Context, req *pb.Request)(*pb.Response, e
 }
 //luu tin nhan vao trong csdl
 func saveMessage(mess pb.Message){
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	//sinh mid
-	idclient,_ := mpid.Get("127.0.0.1", "18405").Get()
+	idclient,_ := mpid.Get("159.89.205.103", "18405").Get()
 	defer idclient.BackToPool()
 	idclient.Client.(*idbs.TGeneratorClient).CreateGenerator("GenIdMessage")
 	id := getValue("GenIdMessage")
@@ -628,7 +638,7 @@ func (s *UserService) CheckUser(ctx context.Context, in *pb.Request) (*pb.Respon
 
 //check xem nguoi nhan co online hay khong
 func messageWatting(mess pb.Message) bool{
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	//neu trong database ko co du lieu thi phai check xem no ton tai ko, neu ko thi se gay ta loi
 	check, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("UserName", []byte(mess.ToUid))
@@ -654,7 +664,7 @@ func listenToClient(stream pb.ChatgRPC_RouteChatServer, messages chan<- pb.Messa
 		if err != nil {
 			fmt.Println("err != nil")
 
-			client, _ := mp.Get("127.0.0.1", "18407").Get()
+			client, _ := mp.Get("159.89.205.103", "18407").Get()
 			defer client.BackToPool()
 			id, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName_Id", []byte(fromname))
 			uid := string(id.Item.Value[:])
@@ -671,7 +681,7 @@ func listenToClient(stream pb.ChatgRPC_RouteChatServer, messages chan<- pb.Messa
 //truyen vao 1 uid, tra ve 1 mang cid thuoc cid do
 func get_cidConversationDetail(Uid string) (cids []string){
 
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	count,_ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("IdConversation")
 
@@ -689,7 +699,7 @@ func get_cidConversationDetail(Uid string) (cids []string){
 //truyen vao 1 cid, tra ve 1 mang uid thuoc cid do
 func get_uidConversationDetail(Cid string) (uids []string){
 
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	count,_ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("IdConversation")
 
@@ -771,7 +781,7 @@ func (s *UserService)RouteChat(stream pb.ChatgRPC_RouteChatServer) error {
 }
 func (s *UserService) GetInfoUser(ctx context.Context, in *pb.Request) (*pb.User, error) {
 
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 
 	//truoc tien check xem no co online
@@ -791,7 +801,7 @@ func (s *UserService) GetInfoUser(ctx context.Context, in *pb.Request) (*pb.User
 	}else {return &user, nil}
 }
 func a(){
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	client, _ := mp.Get("159.89.205.103", "18407").Get()
 	defer client.BackToPool()
 	var c bs.TItemSet
 
@@ -806,6 +816,13 @@ func a(){
 	fmt.Println(a)
 }
 
+func (s *UserService) SendImages(ctx context.Context, in *pb.Request) (*pb.Reply, error) {
+	//nhan ve 1 string, chuyen sang byte, chuyen lai sang string send ve cho client
+	fmt.Println("Client send images: ",in.Req)
+
+	str := in.GetReq()
+	return &pb.Reply{Rep: str}, nil
+}
 func main(){
 	listen, err := net.Listen("tcp", address)
 	if err != nil {
@@ -814,7 +831,7 @@ func main(){
 	s := grpc.NewServer()
 	pb.RegisterChatgRPCServer(s, &UserService{})
 	//	a()
-	fmt.Println("Listening on the 0.0.0.0:8000")
+	fmt.Println("Listening on the 159.89.205.103:8000")
 	if err := s.Serve(listen); err != nil {
 		log.Fatal(err)
 	}
