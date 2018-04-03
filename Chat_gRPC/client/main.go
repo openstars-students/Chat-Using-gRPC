@@ -14,10 +14,11 @@ import (
 	"strconv"
 	"os/signal"
 	"syscall"
+
 )
 
 const (
-	address = "159.89.205.103:8000"
+	address = "127.0.0.1:8000"
 )
 
 var sessionkey string
@@ -164,7 +165,25 @@ func runLogout(c pb.ChatgRPCClient) bool{
 	fmt.Println(logout.GetResponse())
 	return false
 }
+func runGetAllConversation(c pb.ChatgRPCClient){
 
+	var request pb.Request
+	request.Sessionkey = sessionkey
+
+	lstCid,err:=c.GetAllConversation(context.Background(),&request)
+
+	if err != nil {
+		log.Fatal("GetAllConversation error: ", err)
+		return
+	}
+	fmt.Println(lstCid.GetListConversation())
+	/*
+	for i:=0;i<len(lstCid.GetListConversation());i++{
+
+		fmt.Println("Cid: ",lstCid.GetListConversation()[i].GetCid())
+	}
+	*/
+}
 func runLogin(c pb.ChatgRPCClient) {
 
 	var UserName pb.UserLogin
@@ -213,7 +232,8 @@ func runLogin(c pb.ChatgRPCClient) {
 					runLoadAllMessOnCid(c)
 				case "8":
 					runAddUidToConversation(c)
-
+				case "11":
+					runGetAllConversation(c)
 
 				}
 			}

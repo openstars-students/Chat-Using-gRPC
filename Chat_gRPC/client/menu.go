@@ -20,5 +20,6 @@ func TopMenuChat(){
 	fmt.Println("8) AddUidToConversation")
 	fmt.Println("9) Add Friend")
 	fmt.Println("10) GetListFriend")
+	fmt.Println("11) GetAllConversation")
 	fmt.Println("Main> ")
 }
