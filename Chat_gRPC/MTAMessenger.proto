@@ -109,6 +109,7 @@ message Conversation{
     string ConversationName =2;
     string LastedTime=4;//lan cuoi cung nhan tin
     repeated string listusername=5;
+    string lastMessage=3;
 }
 message AllConversation{
     repeated Conversation listConversation=1;

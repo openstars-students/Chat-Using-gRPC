@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"os/signal"
 	"syscall"
-
 )
 
 const (
@@ -32,6 +31,7 @@ func chat(c pb.ChatgRPCClient, idreceiver string, idconversation string) bool{
 	mailBox := make(chan pb.Message, 100)
 	go receiveMessages(stream, mailBox)
 	sendQ := make(chan pb.Message, 100)
+
 	go listenToClient(sendQ, reader, idreceiver,idconversation )
 
 	for {
@@ -76,6 +76,8 @@ func chatRieng(c pb.ChatgRPCClient, idreceiver string, cid string){
 
 		stream,_ := c.RouteChat(context.Background())
 		err := stream.Send(&a)
+		fmt.Println("da gui: ")
+
 		if err != nil {
 			log.Fatal("client Chat send chat error: ", err)
 		}
@@ -129,7 +131,7 @@ func runLoadWaittingMess(c pb.ChatgRPCClient){
 	lstmess,err:=c.LoadWaittingMess(context.Background(),&request)
 
 	if err != nil {
-		//log.Fatal("ListUser stream error: ", err)
+		log.Fatal("ListUser stream error: ", err)
 		return
 	}
 	for i:=0;i<len(lstmess.GetWaittingmess());i++{
@@ -307,6 +309,7 @@ func receiveMessages(stream pb.ChatgRPC_RouteChatClient, mailbox chan pb.Message
 		mailbox <- *msg
 	}
 }
+
 func createGroup(c pb.ChatgRPCClient){
 
 	fmt.Printf("Nhap id cac ban be: ")
@@ -336,7 +339,7 @@ func runGetListUser(c pb.ChatgRPCClient){
 	lstUser,err:=c.GetListUser(context.Background(),&request)
 
 	if err != nil {
-		//log.Fatal("ListUser stream error: ", err)
+		log.Fatal("ListUser stream error: ", err)
 		return
 	}
 	for i:=0;i<len(lstUser.GetAlluser());i++{

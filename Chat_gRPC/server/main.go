@@ -16,6 +16,7 @@ import (
 	"strconv"
 	//"github.com/constabulary/gb/testdata/src/a"
 	"strings"
+	"time"
 )
 
 const address  ="127.0.0.1:8000"
@@ -74,7 +75,8 @@ func (s *UserService) Register(ctx context.Context, in *pb.User) (*pb.Response, 
 				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Password", &bs.TItem{[]byte(key_name),[]byte(pass)})
 				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Phone", &bs.TItem{[]byte(key_name),[]byte(in.GetPhone())})
 				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Email", &bs.TItem{[]byte(key_name),[]byte(in.GetEmail())})
-				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("CreatedTime", &bs.TItem{[]byte(key_name),[]byte(string(in.GetCreatedTime()))})
+				t := strconv.Itoa(int(time.Now().UTC().UnixNano()))
+				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("CreatedTime", &bs.TItem{[]byte(key_name),[]byte(string(t))})
 				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Active", &bs.TItem{[]byte(key_name),[]byte(active)})
 				return &pb.Response{Response:"Register Success"}, nil
 			}else{return &pb.Response{Response:"that Email already exists"}, nil}
@@ -222,14 +224,17 @@ func checkEmail(email string)bool{
 	return true
 }
 //truyen vao sessionkey, tra ve stt, username
-func checkSessionKey(sessionkey string) (int64, string){
+func checkSessionKey(sessionkey string) (int64, string) {
 	ssclient, _ := mpcreatekey.Get("127.0.0.1", "19175").Get()
 	defer ssclient.BackToPool()
 	//fmt.Println("session: ", sessionkey)
 
-	uid,_ := ssclient.Client.(*sessionbs.TSimpleSessionService_WClient).GetSession(sessionbs.TSessionKey(sessionkey))
-
-	if uid!= nil{return int64(uid.GetUserInfo().GetUID()),uid.GetUserInfo().GetDeviceInfo() } else {return 0,""}
+	uid, err := ssclient.Client.(*sessionbs.TSimpleSessionService_WClient).GetSession(sessionbs.TSessionKey(sessionkey))
+	if uid != nil && err ==nil {
+		return int64(uid.GetUserInfo().GetUID()), uid.GetUserInfo().GetDeviceInfo()
+	} else {
+		return 0, ""
+	}
 }
 
 //dua ra phan tu chung cua 2 mang
@@ -589,7 +594,9 @@ func saveMessage(mess pb.Message){
 	idclient,_ := mpid.Get("127.0.0.1", "18405").Get()
 	defer idclient.BackToPool()
 	idclient.Client.(*idbs.TGeneratorClient).CreateGenerator("GenIdMessage")
+	
 	id := getValue("GenIdMessage")
+	
 	mid := strconv.Itoa(int(id))
 	var checkmess string
 	//check xem tin nhan da duoc gui thanh cong hay chua
@@ -603,7 +610,11 @@ func saveMessage(mess pb.Message){
 	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("FromId", &bs.TItem{[]byte(mid),[]byte(strconv.FormatInt(fromid,10))})
 	//client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("ConversationId", &bs.TItem{[]byte(mid),[]byte(strconv.FormatInt(fromid,10))})
 	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("ToId", &bs.TItem{[]byte(mid),[]byte(mess.ToUid)})
+
+	t := strconv.Itoa(int(time.Now().UTC().UnixNano()))
+	mess.CreatedTime = t
 	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("MessCreatedTime", &bs.TItem{[]byte(mid),[]byte(mess.CreatedTime)})
+
 	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("CheckMess", &bs.TItem{[]byte(mid),[]byte(checkmess)})
 
 	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Cid", &bs.TItem{[]byte(mid),[]byte(mess.GetCid())})
@@ -661,26 +672,38 @@ func messageWatting(mess pb.Message) bool{
 //lang nghe tin nhan den
 func listenToClient(stream pb.ChatgRPC_RouteChatServer, messages chan<- pb.Message, wg sync.WaitGroup, fromname string) {
 	for {
-		msg, err := stream.Recv()
-		if err == io.EOF {
-			fmt.Println("err == io.EOF")
-			defer wg.Done()
-			return
-		}
-		if err != nil {
-			fmt.Println("err != nil")
 
-			client, _ := mp.Get("127.0.0.1", "18407").Get()
-			defer client.BackToPool()
-			id, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName_Id", []byte(fromname))
-			uid := string(id.Item.Value[:])
-			fmt.Println(uid)
-			client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Active", &bs.TItem{[]byte(uid),[]byte("0")})
-			fmt.Println(len(clients))
-			delete(clients, uid)
-			defer wg.Done()
-			return
-		} else {msg.FromName = fromname ; messages <- *msg}
+		fmt.Println("listen1: ")
+		msg, err := stream.Recv()
+		fmt.Println("messlisten: ", msg.GetSessionkey())
+		if msg != nil {
+			from_id, _ := checkSessionKey(msg.GetSessionkey())
+
+			if from_id != 0 {
+				if err == io.EOF {
+					fmt.Println("err == io.EOF")
+					defer wg.Done()
+					return
+				}
+				if err != nil {
+					fmt.Println("err != nil")
+
+					client, _ := mp.Get("127.0.0.1", "18407").Get()
+					defer client.BackToPool()
+					id, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName_Id", []byte(fromname))
+					uid := string(id.Item.Value[:])
+					fmt.Println(uid)
+					client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Active", &bs.TItem{[]byte(uid), []byte("0")})
+					fmt.Println(len(clients))
+					delete(clients, uid)
+					defer wg.Done()
+					return
+				} else {
+					msg.FromName = fromname;
+					messages <- *msg
+				}
+			}
+		}else {return }
 	}
 	defer wg.Done()
 }
@@ -730,7 +753,6 @@ func broadcast(fromid string, cid string, msg pb.Message) {
 	for _,uid := range uids {
 		//	fmt.Println("uid:  ", uid)
 		if fromid != uid   {
-
 			//check nguoi nhan co online hay ko, gan "msg.ToUid = uid" de check nguoi nhan
 			msg.ToUid = uid
 			if messageWatting(msg){
@@ -741,21 +763,24 @@ func broadcast(fromid string, cid string, msg pb.Message) {
 			}
 
 			msg.ToUid = cid
+			if uid != ""{
 			clients[uid].ch <- msg
+		}else {return }
 		}
 	}
 }
 //tin nhan den bao gom fromid, cid
 //tin nhan tra ve bao gom fromname, cid
 func (s *UserService)RouteChat(stream pb.ChatgRPC_RouteChatServer) error {
+
 	fmt.Println("RouteChat: ")
 	var wg sync.WaitGroup
 	wg.Add(1)
 	mess,_ := stream.Recv()
-	//sau khi nhan thi stream se tro thanh ko co gia tri.
-	//nhan hang ngan tu thi cung the ca thoi
-	//tra ve id, name
+
+	if mess != nil && mess.GetSessionkey() != ""{
 	from_id,from_name := checkSessionKey(mess.GetSessionkey())
+
 	if from_id !=0{
 		//check xem nguoi nhan co online khong, neu khong thi save tin nhan
 		if messageWatting(*mess){
@@ -767,8 +792,8 @@ func (s *UserService)RouteChat(stream pb.ChatgRPC_RouteChatServer) error {
 		}
 		clientMessages := make(chan pb.Message)
 		go listenToClient(stream, clientMessages,wg, from_name)
-
 		for {
+			fmt.Println("RouteChat1: ")
 			select {
 			case messageFromClient := <-clientMessages:
 				broadcast(strconv.Itoa(int(from_id)),mess.GetCid(), messageFromClient)
@@ -782,8 +807,7 @@ func (s *UserService)RouteChat(stream pb.ChatgRPC_RouteChatServer) error {
 				}
 			}
 		}
-
-	}else {return nil}
+	}else {return nil}} else {return nil}
 }
 func (s *UserService) GetInfoUser(ctx context.Context, in *pb.Request) (*pb.User, error) {
 
@@ -844,6 +868,7 @@ func main(){
 	pb.RegisterChatgRPCServer(s, &UserService{})
 	//	a()
 	fmt.Println("Listening on the 127.0.0.1:8000")
+
 	if err := s.Serve(listen); err != nil {
 		log.Fatal(err)
 	}
