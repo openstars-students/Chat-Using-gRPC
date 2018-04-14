@@ -47,13 +47,10 @@ func (s *UserService) Register(ctx context.Context, in *pb.User) (*pb.Response, 
 	//client: bigset data
 	client, _ := mp.Get("127.0.0.1", "18407").Get()
 	defer client.BackToPool()
-
 	//idclient: bigset id
 	idclient,_ := mpid.Get("127.0.0.1", "18405").Get()
 	defer idclient.BackToPool()
-
 	username := in.GetUsername()
-
 	pass := Hash(in.GetPassword())
 	var active string
 	active = "0"
@@ -61,7 +58,6 @@ func (s *UserService) Register(ctx context.Context, in *pb.User) (*pb.Response, 
 	if checkName(username){
 		if checkPhone(in.GetPhone()){
 			if checkEmail(in.GetEmail()){
-
 				idclient.Client.(*idbs.TGeneratorClient).CreateGenerator("GenIdUserName")
 				id := getValue("GenIdUserName")
 				key_name := strconv.Itoa(int(id))
@@ -72,12 +68,17 @@ func (s *UserService) Register(ctx context.Context, in *pb.User) (*pb.Response, 
 				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("UserName_Id", &bs.TItem{[]byte(string(in.GetUsername())),[]byte(string(key_name))})
 
 				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("UserName", &bs.TItem{[]byte(key_name),[]byte(in.GetUsername())})
-				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Password", &bs.TItem{[]byte(key_name),[]byte(pass)})
-				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Phone", &bs.TItem{[]byte(key_name),[]byte(in.GetPhone())})
-				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Email", &bs.TItem{[]byte(key_name),[]byte(in.GetEmail())})
-				t := strconv.Itoa(int(time.Now().UTC().UnixNano()))
-				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("CreatedTime", &bs.TItem{[]byte(key_name),[]byte(string(t))})
+			//	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Password", &bs.TItem{[]byte(key_name),[]byte(pass)})
+			//	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Phone", &bs.TItem{[]byte(key_name),[]byte(in.GetPhone())})
+			//	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Email", &bs.TItem{[]byte(key_name),[]byte(in.GetEmail())})
+				t := strconv.Itoa(int(time.Now().Unix()))
+			//	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("CreatedTime", &bs.TItem{[]byte(key_name),[]byte(string(t))})
 				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Active", &bs.TItem{[]byte(key_name),[]byte(active)})
+
+				str := pass + " " + in.GetEmail() + " " + in.GetPhone() + " " + t
+
+				client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("InfoUser", &bs.TItem{[]byte(key_name),[]byte(str)})
+
 				return &pb.Response{Response:"Register Success"}, nil
 			}else{return &pb.Response{Response:"that Email already exists"}, nil}
 		}else {return &pb.Response{Response:"that Phone already exists"}, nil}
@@ -95,25 +96,21 @@ func (s *UserService) Login(ctx context.Context, in *pb.UserLogin) (*pb.Response
 	username := in.GetUsername()
 	password := Hash(in.GetPassword())
 
-
 	//lay ra Uid tu username
 	checkid,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("UserName_Id", []byte(username))
 	if checkid.GetExisted() {
-
 		id ,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName_Id", []byte(username))
 		key_id := string(id.Item.Value[:])
-
 		name, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName", []byte(key_id))
 		checkname, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("UserName", []byte(key_id))
-
 		if checkname.GetExisted() {
-
 			//take id:
-			pass, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Password", []byte(key_id))
-			checkpass, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("Password", []byte(key_id))
-
-			if checkpass.GetExisted() {
-				if (string(pass.Item.Value[:]) == password && username == string(name.Item.Value[:])) {
+			checkpass, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("InfoUser", []byte(key_id))
+			res,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("InfoUser", []byte(key_id))
+			if checkpass.GetExisted(){
+				s := string(res.GetItem().GetValue())
+				str := strings.Split(s, " ")
+				if (str[0] == password && username == string(name.Item.Value[:])) {
 					c := &Client{
 						uid:  key_id,
 						name: username,
@@ -195,10 +192,13 @@ func checkPhone(phone string)bool{
 	count := getCurrentId("GenIdUserName")
 	//neu nhu co thi return false
 	for i := 0; i<= int(count); i++{
-		check, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("Phone", []byte(strconv.Itoa(i)))
-		res,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Phone", []byte(strconv.Itoa(i)))
-		if check.Existed{
-			if phone == string(res.GetItem().GetValue()) {
+
+		check, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("InfoUser", []byte(strconv.Itoa(i)))
+		res,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("InfoUser", []byte(strconv.Itoa(i)))
+		if check.GetExisted(){
+			s := string(res.GetItem().GetValue())
+			str := strings.Split(s, " ")
+			if phone == str[2] {
 				return false
 			}
 		}
@@ -213,10 +213,12 @@ func checkEmail(email string)bool{
 	count := getCurrentId("GenIdUserName")
 	//neu nhu co thi return false
 	for i := 0; i<= int(count); i++{
-		check, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("Email", []byte(strconv.Itoa(i)))
-		res,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Email", []byte(strconv.Itoa(i)))
-		if check.Existed{
-			if email == string(res.GetItem().GetValue()) {
+		check, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("InfoUser", []byte(strconv.Itoa(i)))
+		res,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("InfoUser", []byte(strconv.Itoa(i)))
+		if check.GetExisted(){
+			s := string(res.GetItem().GetValue())
+			str := strings.Split(s, " ")
+			if email == str[1] {
 				return false
 			}
 		}
@@ -261,9 +263,12 @@ func checkIdConversation(lst []string) string{
 	for i:=0 ; i < len(lst); i++{
 		for j:=1; j<= int(count); j++{
 			cid,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("IdConversation", []byte(strconv.Itoa(int(j))))
-			cid1 := string(cid.Item.Value[:])
-			if lst[i] == cid1{
-				dem ++
+
+			if (cid != nil && cid.Item != nil && cid.Item.Value != nil){
+				cid1 := string(cid.Item.Value[:])
+				if lst[i] == cid1{
+					dem ++
+				}
 			}
 		}
 		if dem ==2{
@@ -283,6 +288,8 @@ func (s *UserService) CreateConversation(ctx context.Context, in *pb.Request) (*
 		//
 		idclient, _ := mpid.Get("127.0.0.1", "18405").Get()
 		defer idclient.BackToPool()
+
+//check idreceiver xem co tren he thong chua
 
 		idreceiver := in.GetRequest()
 
@@ -312,9 +319,6 @@ func (s *UserService) CreateConversation(ctx context.Context, in *pb.Request) (*
 				//gen id Conversation
 				idclient.Client.(*idbs.TGeneratorClient).CreateGenerator("GenIdConversation")
 				cid := getValue("GenIdConversation")
-
-				//gen id conversationdetail
-				//add uid, cid vao conversation lan 1
 				idclient.Client.(*idbs.TGeneratorClient).CreateGenerator("GenIdConversationDetail")
 				cdid := getValue("GenIdConversationDetail")
 
@@ -332,8 +336,7 @@ func (s *UserService) CreateConversation(ctx context.Context, in *pb.Request) (*
 				return &pb.Response{Id: get_cid, Check: true}, nil
 			}
 		}else{
-			//fmt.Println("group")
-				//gen id Conversation
+
 				idclient.Client.(*idbs.TGeneratorClient).CreateGenerator("GenIdConversation")
 				cid := getValue("GenIdConversation")
 
@@ -367,7 +370,6 @@ func (s *UserService) AddUidToConversation(ctx context.Context, in *pb.Conversat
 	fromid, _ := checkSessionKey(in.GetSessionkey())
 
 	if fromid != 0 {
-
 		s := in.GetUid()
 		for _, uid := range s {
 			cdid := getValue("GenIdConversationDetail")
@@ -395,36 +397,40 @@ func (s *UserService)GetAllConversation(ctx context.Context, in *pb.Request)(*pb
 		for _, cid := range lst_cid{
 			Cid := pb.Conversation{}
 			Cid.Cid = cid
+
+			uids := get_uidConversationDetail(cid)
+			listUserName := ""
+			for _, uid := range uids{
+				username, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName", []byte(uid))
+				if username != nil && username.Item != nil{
+					s := string(username.Item.Value[:])
+					listUserName = listUserName + s + " "
+					}
+			}
+			Cid.Listusername = listUserName
+			client, _ := mp.Get("127.0.0.1", "18407").Get()
+			defer client.BackToPool()
+				str, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid-nMessId", []byte(cid))
+				if str != nil && str.Item != nil && str.Item.Value != nil{
+				//s := string(str.Item.Value[:])
+				s := strings.Split(string(str.Item.Value[:]), " ")
+
+				lastMid := s[len(s)-1]
+				messgae,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Message", []byte(lastMid))
+				if  messgae != nil && messgae.Item != nil {
+					str := strings.Split(string(messgae.Item.Value[:]), " ")
+
+					Cid.LastMessage = str[0]
+					Cid.LastedTime = str[2]
+					}
+			}
+
 			listCid = append(listCid,&Cid)
 		}
 		fmt.Println("listCid: ", listCid)
 		return &pb.AllConversation{ListConversation:listCid},nil
 	}
 	return &pb.AllConversation{},nil
-}
-func getMessValue(cid string){
-	client, _ := mp.Get("127.0.0.1", "18407").Get()
-	defer client.BackToPool()
-	count,_ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("Content")
-	for i:=1; i<=int(count); i++{
-
-		key := strconv.Itoa(i)
-		fromname, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid", []byte(key))
-		Cid := string(fromname.Item.Value[:])
-		if Cid == cid {
-			fromname, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("FromName", []byte(key))
-			fmt.Print(string(fromname.Item.Value[:]), " > ")
-			content, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Content", []byte(key))
-			if (content != nil && content.Item != nil && content.Item.Value != nil ) {
-				fmt.Print( string(content.Item.Value[:]))
-			}
-			status, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("CheckMess", []byte(key))
-			if (content != nil && content.Item != nil && content.Item.Value != nil ) {
-				fmt.Println("   ",string(status.Item.Value[:]))
-			}
-
-		}
-	}
 }
 
 //load tat ca cac tin nhan chua duoc nhan
@@ -442,31 +448,35 @@ func (s *UserService)LoadWaittingMess(ctx context.Context, in *pb.Request)(*pb.W
 		dem :=0
 		for i := 1; i<=int(count); i++ {
 			key := strconv.Itoa(i)
-			check, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("ToId", []byte(key))
-			if check.GetExisted() {
-				//tim ToId
 				toid, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("ToId", []byte(key))
+				if toid != nil && toid.Item != nil && toid.Item.Value != nil{
 				ToId := string(toid.Item.Value[:])
 				//check status message
-				check,_ = client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("CheckMess", []byte(key))
-				if check.GetExisted() {
 					checkmess, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("CheckMess", []byte(key))
+					if checkmess != nil && checkmess.Item != nil && checkmess.Item.Value != nil{
 					CheckMess := string(checkmess.Item.Value[:])
 					//neu ToId == Uid va status mess chua duoc gui
 					if strconv.Itoa(int(uid)) == ToId && CheckMess == "0" {
 						//lay content
 						content, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Content", []byte(key))
-						m.Content = string(content.Item.Value[:])
+						if content != nil && content.Item != nil && content.Item.Value != nil{
+							m.Content = string(content.Item.Value[:])
+						}
 						//lay time
 						createdtime, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("MessCreatedTime", []byte(key))
-						m.CreatedTime = string(createdtime.Item.Value[:])
+						if createdtime != nil && createdtime.Item != nil && createdtime.Item.Value != nil {
+							m.CreatedTime = string(createdtime.Item.Value[:])
+						}
 						//lay fromname
 						fromname, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("FromName", []byte(key))
-						m.FromName = string(fromname.Item.Value[:])
+						if fromname != nil && fromname.Item != nil && fromname.Item.Value != nil {
+							m.FromName = string(fromname.Item.Value[:])
+						}
 						//thuoc cid nao
 						cid, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid", []byte(key))
-						m.Cid = string(cid.Item.Value[:])
-
+						if cid != nil && cid.Item != nil && cid.Item.Value != nil {
+							m.Cid = string(cid.Item.Value[:])
+						}
 						client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("CheckMess", &bs.TItem{[]byte(key), []byte("1")})
 						mess = append(mess, m)
 						lstmess = append(lstmess, &mess[dem])
@@ -485,35 +495,76 @@ func (s *UserService) LoadAllMessOnCid(ctx context.Context, in *pb.Request) (*pb
 	defer client.BackToPool()
 	uid, _ := checkSessionKey(in.GetSessionkey())
 	//count, _ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("Content")
-
 	mess := []pb.Message{}
 	var m pb.Message
 	lstmess := []*pb.Message{}
 
 	cidRequest := in.GetRequest()
+	strLastMid := in.GetId()
+
 	if uid != 0 {
 		//Mess,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetSlice("Content",0, int32(count))
 		dem := 0
-		checkCidRequest, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("Cid", []byte(cidRequest))
+		checkCidRequest, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("Cid-nMessId", []byte(cidRequest))
 		if checkCidRequest.GetExisted() {
-			str, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid-nMessId", []byte(cidRequest))
-			//s := string(str.Item.Value[:])
-			s := strings.Split(string(str.Item.Value[:]), " ")
-			for _, mid := range s {
-				content, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Content", []byte(mid))
-				m.Content = string(content.Item.Value[:])
-				//lay time
-				createdtime, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("MessCreatedTime", []byte(mid))
-				m.CreatedTime = string(createdtime.Item.Value[:])
-				//lay fromname
-				fromname, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("FromName", []byte(mid))
-				m.FromName = string(fromname.Item.Value[:])
+			fmt.Println(uid)
+				str, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid-nMessId", []byte(cidRequest))
+				if str != nil && str.Item != nil && str.Item.Value != nil{
+				//s := string(str.Item.Value[:])
+				s := strings.Split(string(str.Item.Value[:]), " ")
+				if strLastMid != "" {
+				var lastMid int
+				for i, mid := range s {
+					if mid == strLastMid {lastMid = i; break}
+				}
+				startMid := lastMid -20
+				if startMid < 0 {
+					startMid = 0
+				}
+				fmt.Println(startMid)
+				fmt.Println(lastMid)
+				for i:= startMid ; i<lastMid ; i ++ {
+					mid := s[i]
+					if mid == "" {fmt.Println("111mid == ",mid )
+						continue}
+					if startMid == lastMid {break}
+					m.Mid,_ = strconv.ParseUint(mid, 10, 64)
 
-				mess = append(mess, m)
-				lstmess = append(lstmess, &mess[dem])
-				dem ++
-			}
-		}
+					s,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Message", []byte(mid))
+					if  s != nil && s.Item != nil {
+					str := strings.Split(string(s.Item.Value[:]), " ")
+
+					m.Content = str[0]
+					m.FromName = str[1]
+					m.CreatedTime = str[2]
+					mess = append(mess, m)
+					lstmess = append(lstmess, &mess[dem])
+					dem ++
+
+					}
+				}
+				}else{
+					for _, mid := range s {
+					//mid nao bi xoa thi mid == ""
+						if mid == "" {fmt.Println("mid == ",mid )
+						continue}
+						m.Mid,_ = strconv.ParseUint(mid, 10, 64)
+
+						s,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Message", []byte(mid))
+						if  s != nil && s.Item != nil {
+							str := strings.Split(string(s.Item.Value[:]), " ")
+
+							m.Content = str[0]
+							m.FromName = str[1]
+							m.CreatedTime = str[2]
+							mess = append(mess, m)
+							lstmess = append(lstmess, &mess[dem])
+							dem ++
+							}
+											}
+						}
+					}
+				}
 		return &pb.AllMessages{Allmess:lstmess}, nil
 	} else {return &pb.AllMessages{Allmess:lstmess }, nil}
 }
@@ -538,17 +589,15 @@ func (s *UserService) GetListUser(ctx context.Context, in *pb.Request)(*pb.AllIn
 		dem :=0
 		for i := 1; i<=int(count); i++ {
 			key := strconv.Itoa(i)
-			check, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("UserName", []byte(key))
-			if check.GetExisted() {
 				//tim ToId
-				username, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName", []byte(key))
-				UserName := string(username.Item.Value[:])
-				m.Username = UserName
-				m.Uid = uint64(i)
-
-				active, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Active", []byte(key))
+			username, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName", []byte(key))
+			if username != nil && username.Item != nil && username.Item.Value != nil{
+			UserName := string(username.Item.Value[:])
+			m.Username = UserName
+			m.Uid = uint64(i)
+			active, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Active", []byte(key))
+			if active != nil && active.Item != nil && active.Item.Value != nil {
 				Active := string(active.Item.Value[:])
-
 				if Active =="1" {
 					m.Active = true
 				}else {m.Active =false}
@@ -556,7 +605,7 @@ func (s *UserService) GetListUser(ctx context.Context, in *pb.Request)(*pb.AllIn
 				user = append(user, m)
 				listuser =append(listuser, &user[dem])
 				dem ++
-			}
+			}}
 		}
 		return &pb.AllInfoUser{Alluser:listuser}, nil
 	} else {return &pb.AllInfoUser{Alluser:listuser }, nil}
@@ -574,9 +623,8 @@ func(s *UserService) GetId(ctx context.Context, req *pb.Request)(*pb.Response, e
 	uid, _ := checkSessionKey(req.GetSessionkey())
 	if uid != 0 {
 		username := req.GetRequest()
-		checkId,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("UserName_Id", []byte(username))
-		if checkId.GetExisted() {
 			id, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName_Id", []byte(username))
+			if id != nil && id.Item != nil && id.Item.Value != nil{
 			uid := string(id.Item.Value[:])
 			return &pb.Response{Check: true, Id: uid}, nil
 		}else{
@@ -604,36 +652,38 @@ func saveMessage(mess pb.Message){
 		checkmess ="1"
 	}else{checkmess ="0"}
 
-	fromid,_ := checkSessionKey(mess.GetSessionkey())
+//	fromid,_ := checkSessionKey(mess.GetSessionkey())
 
-	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Content", &bs.TItem{[]byte(mid),[]byte(mess.Content)})
-	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("FromId", &bs.TItem{[]byte(mid),[]byte(strconv.FormatInt(fromid,10))})
+//	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Content", &bs.TItem{[]byte(mid),[]byte(mess.Content)})
+//	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("FromId", &bs.TItem{[]byte(mid),[]byte(strconv.FormatInt(fromid,10))})
 	//client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("ConversationId", &bs.TItem{[]byte(mid),[]byte(strconv.FormatInt(fromid,10))})
-	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("ToId", &bs.TItem{[]byte(mid),[]byte(mess.ToUid)})
+//	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("ToId", &bs.TItem{[]byte(mid),[]byte(mess.ToUid)})
 
-	t := strconv.Itoa(int(time.Now().UTC().UnixNano()))
+	t := strconv.Itoa(int(time.Now().Unix()))
 	mess.CreatedTime = t
-	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("MessCreatedTime", &bs.TItem{[]byte(mid),[]byte(mess.CreatedTime)})
-
+//	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("MessCreatedTime", &bs.TItem{[]byte(mid),[]byte(mess.CreatedTime)})
 	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("CheckMess", &bs.TItem{[]byte(mid),[]byte(checkmess)})
 
 	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Cid", &bs.TItem{[]byte(mid),[]byte(mess.GetCid())})
-	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("FromName", &bs.TItem{[]byte(mid),[]byte(mess.FromName)})
+	//client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("FromName", &bs.TItem{[]byte(mid),[]byte(mess.FromName)})
 
-	a, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Content", []byte(mid))
-	b := a.Item.Value[:]
-	fmt.Print("Cid: ",string(mess.Cid))
-	count,_ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("Content")
-	fmt.Println(" content:= ",string(b),"   messId := ", mid, "  count: ", count, "toid: ", mess.ToUid, "check: ", checkmess	)
+	s := mess.Content + " " + mess.FromName + " " + mess.CreatedTime
+	client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Message", &bs.TItem{[]byte(mid),[]byte(s)})
 
+	fmt.Println(mid," ",mess)
 	check,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("Cid-nMessId", []byte(mess.GetCid()))
+
 	if check.GetExisted(){
 		str,_:= client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid-nMessId", []byte(mess.GetCid()))
 		s := string(str.Item.Value[:])
 		s = s + " " + mid
-		fmt.Println(s)
+
 		client.Client.(*bs.TStringBigSetKVServiceClient).BsRemoveItem("Cid-nMessId", []byte(mess.GetCid()))
 		client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Cid-nMessId", &bs.TItem{[]byte(mess.GetCid()),[]byte(s)})
+
+		a,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid-nMessId",[]byte(mess.GetCid()))
+		fmt.Println(string(a.Item.Value))
+
 	} else {
 		client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Cid-nMessId", &bs.TItem{[]byte(mess.GetCid()), []byte(mid)})
 	}
@@ -659,7 +709,7 @@ func messageWatting(mess pb.Message) bool{
 	defer client.BackToPool()
 	//neu trong database ko co du lieu thi phai check xem no ton tai ko, neu ko thi se gay ta loi
 	check, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("UserName", []byte(mess.ToUid))
-	if check.Existed{
+	if check.GetExisted(){
 		//kiem tra no co online ko
 		var username = clients[mess.ToUid]
 		//neu ko online thi tra ve true
@@ -672,44 +722,45 @@ func messageWatting(mess pb.Message) bool{
 //lang nghe tin nhan den
 func listenToClient(stream pb.ChatgRPC_RouteChatServer, messages chan<- pb.Message, wg sync.WaitGroup, fromname string) {
 	for {
-
 		fmt.Println("listen1: ")
 		msg, err := stream.Recv()
-		fmt.Println("messlisten: ", msg.GetSessionkey())
-		if msg != nil {
+		if msg != nil  {
 			from_id, _ := checkSessionKey(msg.GetSessionkey())
-
 			if from_id != 0 {
 				if err == io.EOF {
 					fmt.Println("err == io.EOF")
-					defer wg.Done()
 					return
 				}
 				if err != nil {
-					fmt.Println("err != nil")
-
+					fmt.Println("client chet mem")
 					client, _ := mp.Get("127.0.0.1", "18407").Get()
-					defer client.BackToPool()
 					id, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName_Id", []byte(fromname))
 					uid := string(id.Item.Value[:])
 					fmt.Println(uid)
 					client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Active", &bs.TItem{[]byte(uid), []byte("0")})
 					fmt.Println(len(clients))
 					delete(clients, uid)
-					defer wg.Done()
 					return
 				} else {
-					msg.FromName = fromname;
+					msg.FromName = fromname
+					saveMessage(*msg)
 					messages <- *msg
 				}
 			}
-		}else {return }
+		}else {
+			fmt.Println("client chet cung")
+			client, _ := mp.Get("127.0.0.1", "18407").Get()
+			id, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName_Id", []byte(fromname))
+			uid := string(id.Item.Value[:])
+			client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Active", &bs.TItem{[]byte(uid), []byte("0")})
+			fmt.Println(len(clients))
+			delete(clients, uid)
+			return
+		}
 	}
-	defer wg.Done()
 }
 //truyen vao 1 uid, tra ve 1 mang cid thuoc cid do
 func get_cidConversationDetail(Uid string) (cids []string){
-
 	client, _ := mp.Get("127.0.0.1", "18407").Get()
 	defer client.BackToPool()
 	count,_ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("IdConversation")
@@ -717,10 +768,13 @@ func get_cidConversationDetail(Uid string) (cids []string){
 	cids = []string{}
 	for i:=1; i<= int(count); i++{
 		uid,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("IdMember", []byte(strconv.Itoa(int(i))))
-		uid1 := string(uid.Item.Value[:])
-		if (uid1 == Uid){
-			cid,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("IdConversation", []byte(strconv.Itoa(int(i))))
-			cids = append(cids,string(cid.Item.Value[:]))
+		if uid != nil && uid.Item != nil && uid.Item.Value != nil{
+			uid1 := string(uid.Item.Value[:])
+			if (uid1 == Uid){
+				cid,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("IdConversation", []byte(strconv.Itoa(int(i))))
+				if cid != nil && cid.Item != nil && cid.Item.Value != nil{
+				cids = append(cids,string(cid.Item.Value[:]))}
+			}
 		}
 	}
 	return cids
@@ -735,10 +789,14 @@ func get_uidConversationDetail(Cid string) (uids []string){
 	uids = []string{}
 	for i:=1; i<= int(count); i++{
 		cid,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("IdConversation", []byte(strconv.Itoa(int(i))))
+		if cid != nil && cid.Item != nil && cid.Item.Value != nil{
 		cid1 := string(cid.Item.Value[:])
 		if (cid1 == Cid){
 			uid,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("IdMember", []byte(strconv.Itoa(int(i))))
+			if uid != nil && uid.Item != nil && uid.Item.Value != nil{
 			uids = append(uids,string(uid.Item.Value[:]))
+			}
+		}
 		}
 	}
 	return uids
@@ -746,13 +804,11 @@ func get_uidConversationDetail(Cid string) (uids []string){
 
 //gui tin cho cac user trong group
 func broadcast(fromid string, cid string, msg pb.Message) {
-
 	uids := []string{}
 	uids = get_uidConversationDetail(cid)
 	//gui tin nhan cho cac uid trong cid
 	for _,uid := range uids {
-		//	fmt.Println("uid:  ", uid)
-		if fromid != uid   {
+		if uid != fromid {
 			//check nguoi nhan co online hay ko, gan "msg.ToUid = uid" de check nguoi nhan
 			msg.ToUid = uid
 			if messageWatting(msg){
@@ -761,16 +817,13 @@ func broadcast(fromid string, cid string, msg pb.Message) {
 				saveMessage(msg )
 				return
 			}
-
 			msg.ToUid = cid
-			if uid != ""{
-			clients[uid].ch <- msg
-		}else {return }
+			if clients[uid] == nil {continue}else {clients[uid].ch <- msg}
 		}
 	}
+
 }
-//tin nhan den bao gom fromid, cid
-//tin nhan tra ve bao gom fromname, cid
+
 func (s *UserService)RouteChat(stream pb.ChatgRPC_RouteChatServer) error {
 
 	fmt.Println("RouteChat: ")
@@ -801,16 +854,12 @@ func (s *UserService)RouteChat(stream pb.ChatgRPC_RouteChatServer) error {
 			case messageFromOthers := <-clients[strconv.Itoa(int(from_id))].ch:
 				err := stream.Send(&messageFromOthers)
 				if err ==nil{
-					//fmt.Println("content: ", messageFromOthers.Content, "   check: ", messageFromOthers.Check)
-					messageFromOthers.Check = true
-					saveMessage(messageFromOthers)
 				}
 			}
 		}
 	}else {return nil}} else {return nil}
 }
 func (s *UserService) GetInfoUser(ctx context.Context, in *pb.Request) (*pb.User, error) {
-
 	client, _ := mp.Get("127.0.0.1", "18407").Get()
 	defer client.BackToPool()
 
@@ -819,16 +868,20 @@ func (s *UserService) GetInfoUser(ctx context.Context, in *pb.Request) (*pb.User
 	var user pb.User
 	if idsender != 0 {
 		key := in.GetRequest()
-
-		createdtime, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName", []byte(key))
-		user.Username= string(createdtime.Item.Value[:])
+		username, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("UserName", []byte(key))
+		if username != nil && username.Item != nil && username.Item.Value != nil{
+		user.Username= string(username.Item.Value[:])}
 
 		active,_ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Active",[]byte(key))
-		if string(active.Item.Value[:]) =="1"{
-			user.Active = true
-		}else {user.Active=false}
-		return &user, nil
+		if active != nil && active.Item != nil && active.Item.Value != nil {
+			if string(active.Item.Value[:]) == "1" {
+				user.Active = true
+			} else {
+				user.Active = false
+			}
+		}else {return &user, nil}
 	}else {return &user, nil}
+	return &user, nil
 }
 func a(){
 	client, _ := mp.Get("127.0.0.1", "18407").Get()
@@ -848,17 +901,57 @@ func a(){
 
 func (s *UserService) DeleteMessage(ctx context.Context, in *pb.Request) (*pb.Response, error){
 
-	return &pb.Response{},nil
+	client, _ := mp.Get("127.0.0.1", "18407").Get()
+	defer client.BackToPool()
+	uid, _ := checkSessionKey(in.GetSessionkey())
+	//count, _ := client.Client.(*bs.TStringBigSetKVServiceClient).GetTotalCount("Content")
+
+	cidRequest := in.GetRequest()
+	strMid := in.GetId()
+
+	if uid != 0 {
+		checkCidRequest, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsExisted("Cid", []byte(cidRequest))
+		if checkCidRequest.GetExisted() {
+				str, _ := client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid-nMessId", []byte(cidRequest))
+				if str != nil && str.Item != nil && str.Item.Value != nil{
+				//s := string(str.Item.Value[:])
+				s := strings.Split(string(str.Item.Value[:]), " ")
+
+				for i := 0; i < len(s); i++ {
+					if  strMid == s[i] {
+						s[i] = ""
+						x := ""
+						for i := 0; i < len(s); i++ {
+							x = x + s[i] +" "
+						}
+						str,_:= client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid-nMessId", []byte(cidRequest))
+						if str != nil && str.Item != nil && str.Item.Value != nil{
+						s := string(str.Item.Value[:])
+							fmt.Println(s)
+							}
+
+						client.Client.(*bs.TStringBigSetKVServiceClient).BsRemoveItem("Cid-nMessId", []byte(cidRequest))
+						client.Client.(*bs.TStringBigSetKVServiceClient).BsPutItem("Cid-nMessId", &bs.TItem{[]byte(cidRequest),[]byte(x)})
+
+						str,_= client.Client.(*bs.TStringBigSetKVServiceClient).BsGetItem("Cid-nMessId", []byte(cidRequest))
+						if str != nil && str.Item != nil && str.Item.Value != nil{
+						s := string(str.Item.Value[:])
+						fmt.Println(s)}
+						return &pb.Response{Check: true}, nil
+					}
+				}
+			}
+		}
+	}
+	return &pb.Response{Check:false},nil
 }
 func (s *UserService) DeleteConversasion(ctx context.Context, in *pb.Request, ) (*pb.Response, error){
 
 	return &pb.Response{},nil
 }
 func (s *UserService) UpdateInfo(ctx context.Context, in *pb.UserInfo,) (*pb.Response, error){
-
 	return &pb.Response{},nil
 }
-
 func main(){
 	listen, err := net.Listen("tcp", address)
 	if err != nil {
@@ -871,6 +964,9 @@ func main(){
 
 	if err := s.Serve(listen); err != nil {
 		log.Fatal(err)
+	}
+	if neterr, ok := err.(net.Error); ok && neterr.Timeout() {
+		fmt.Println("Listening on the 127.0.0.1:8000")
 	}
 }
 

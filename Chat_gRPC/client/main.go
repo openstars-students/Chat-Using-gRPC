@@ -123,7 +123,35 @@ func singeChat(c pb.ChatgRPCClient){
 		}
 	}else {fmt.Println("ten khong ton tai")}
 }
+func runDeleteMessage(c pb.ChatgRPCClient){
+	fmt.Print("Nhap Cid: ")
+	cid := bufio.NewReader(os.Stdin)
+	Cid,_ := cid.ReadString('\n')
+	Cid = strings.TrimSpace(Cid)
 
+	fmt.Print("Nhap lastMid: ")
+	lastmid := bufio.NewReader(os.Stdin)
+	Id,_ := lastmid.ReadString('\n')
+	Id = strings.TrimSpace(Id)
+
+	var request pb.Request
+	request.Sessionkey = sessionkey
+	request.Request = Cid
+	request.Id = Id
+
+	delete,err:=c.DeleteMessage(context.Background(),&request)
+
+	if err != nil {
+		log.Fatal("ListUser stream error: ", err)
+		return
+	}
+	if delete.GetCheck(){
+		fmt.Println("delete success!")
+	}else{
+		fmt.Println("Fails")
+	}
+
+}
 func runLoadWaittingMess(c pb.ChatgRPCClient){
 	//fmt.Println("tin nhan chua duoc doc")
 	var request pb.Request
@@ -145,9 +173,16 @@ func runLoadAllMessOnCid(c pb.ChatgRPCClient){
 	cid := bufio.NewReader(os.Stdin)
 	Cid,_ := cid.ReadString('\n')
 	Cid = strings.TrimSpace(Cid)
+
+	fmt.Print("Nhap lastMid: ")
+	lastmid := bufio.NewReader(os.Stdin)
+	Id,_ := lastmid.ReadString('\n')
+	Id = strings.TrimSpace(Id)
+
 	var request pb.Request
 	request.Sessionkey = sessionkey
 	request.Request = Cid
+	request.Id = Id
 
 	lstmess,err:=c.LoadAllMessOnCid(context.Background(),&request)
 
@@ -155,8 +190,10 @@ func runLoadAllMessOnCid(c pb.ChatgRPCClient){
 		log.Fatal("ListUser stream error: ", err)
 		return
 	}
+
 	for i:=0;i<len(lstmess.GetAllmess());i++{
-		fmt.Println(lstmess.GetAllmess()[i].GetFromName()," >> ",lstmess.GetAllmess()[i].GetContent())
+		fmt.Println(lstmess.GetAllmess()[i].GetMid()," >> ",lstmess.GetAllmess()[i].GetFromName()," >> ",lstmess.GetAllmess()[i].GetContent(), ">>> ", lstmess.GetAllmess()[i].GetCheck())
+
 	}
 }
 func runLogout(c pb.ChatgRPCClient) bool{
@@ -178,13 +215,15 @@ func runGetAllConversation(c pb.ChatgRPCClient){
 		log.Fatal("GetAllConversation error: ", err)
 		return
 	}
-	fmt.Println(lstCid.GetListConversation())
-	/*
+
 	for i:=0;i<len(lstCid.GetListConversation());i++{
 
-		fmt.Println("Cid: ",lstCid.GetListConversation()[i].GetCid())
+		fmt.Print("Cid: ",lstCid.GetListConversation()[i].GetCid())
+		fmt.Print("		username: ",lstCid.GetListConversation()[i].GetListusername())
+		fmt.Print("		Content: ",lstCid.GetListConversation()[i].GetLastMessage())
+		fmt.Println("   	Time: ",lstCid.GetListConversation()[i].GetLastedTime())
 	}
-	*/
+
 }
 func runLogin(c pb.ChatgRPCClient) {
 
@@ -236,7 +275,8 @@ func runLogin(c pb.ChatgRPCClient) {
 					runAddUidToConversation(c)
 				case "11":
 					runGetAllConversation(c)
-
+				case "12":
+					runDeleteMessage(c)
 				}
 			}
 		}

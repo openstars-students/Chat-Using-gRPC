@@ -107,8 +107,8 @@ message Message{
 message Conversation{
     string cid=1;
     string ConversationName =2;
-    string LastedTime=4;//lan cuoi cung nhan tin
-    repeated string listusername=5;
+    string LastedTime=4;//lan cuoi cung nhan tin// dua vao day de sap xep cac cid
+    string listusername=5;
     string lastMessage=3;
 }
 message AllConversation{
