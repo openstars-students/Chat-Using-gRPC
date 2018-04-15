@@ -29,8 +29,6 @@ service ChatgRPC {
     rpc Logout(Request) returns (Response){}
 //kiem tra co user tren database hay ko, truyen vao la 1 sessionkey
     rpc CheckUser(Request) returns (Response){}
-//load tin nhan chua duoc nhan, truyen vao la 1 sessionkey
-    rpc LoadWaittingMess(Request) returns(WaittingMessage){}
 //return uid
     rpc GetId(Request) returns (Response){}
 //tra ve cid
@@ -38,9 +36,9 @@ service ChatgRPC {
 //dau vao la uid tra ve danh sach id Conversation
     rpc GetAllConversation(Request) returns(AllConversation){}
 //add n uid to conversation
-    rpc AddUidToConversation(ConversationDetail) returns(Response){}
+    rpc AddUidToConversation(Request) returns(Response){}
 //load tat ca tin nhan
-    rpc LoadAllMessOnCid(Request) returns (AllMessages){}
+    rpc LoadMessOnCid(Request) returns (AllMessages){}
 //ket ban
     rpc AddFriend(Request) returns (Response){}
 //lay danh sach tat ca user
@@ -80,6 +78,7 @@ message User{
     bool active=3;
     string password=8;
 }
+
 message UserInfo{
     string sessionkey=1;
     User infouser=2;
@@ -88,20 +87,16 @@ message UserInfo{
 message Response{
     string response=1;
     bool check =2;
-    string id=3;
 }
 
-//
 message Message{
     uint64 mid=1;
     string sessionkey =2;
-    string cid= 3;
     string content=5;
     string createdTime=4;
-    bool check=6;
     string from_name =7;
-    string toUid=8;
     bytes Image=9;
+    string cid =3;
 }
 //tra ve cho client khi client chua co
 message Conversation{

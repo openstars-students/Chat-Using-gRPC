@@ -17,16 +17,17 @@ import (
 )
 
 const (
-	address = "127.0.0.1:8000"
+	address = "192.168.43.230:8000"
 )
 
 var sessionkey string
 
 func chat(c pb.ChatgRPCClient, idreceiver string, idconversation string) bool{
 
+
 	reader := bufio.NewReader(os.Stdin)
 	stream,_ := c.RouteChat(context.Background())
-	stream.Send(&pb.Message{Sessionkey:sessionkey, Content:"hello", ToUid: idreceiver, Cid:idconversation})
+	stream.Send(&pb.Message{Sessionkey:sessionkey, Content:"hello", Cid:idconversation})
 
 	mailBox := make(chan pb.Message, 100)
 	go receiveMessages(stream, mailBox)
@@ -56,37 +57,6 @@ func chat(c pb.ChatgRPCClient, idreceiver string, idconversation string) bool{
 	}
 }
 
-//moi lan nhap la 1 lan su dung RouteChat()
-func chatRieng(c pb.ChatgRPCClient, idreceiver string, cid string){
-	fmt.Println("Chat Start:")
-	for  {
-		var a pb.Message
-		reader := bufio.NewReader(os.Stdin)
-		mess, _ := reader.ReadString('\n')
-		mess = strings.TrimSpace(mess)
-		if mess =="exit" {return}
-		a.Content = mess
-		a.Sessionkey = sessionkey
-
-		a.ToUid = idreceiver
-		t := strconv.Itoa(int(time.Now().UTC().UnixNano()))
-		a.CreatedTime = t
-		//fmt.Println(t)
-		a.Cid = cid
-
-		stream,_ := c.RouteChat(context.Background())
-		err := stream.Send(&a)
-		fmt.Println("da gui: ")
-
-		if err != nil {
-			log.Fatal("client Chat send chat error: ", err)
-		}
-
-		reader.Reset(reader)
-	}
-}
-//kiem tra xem co ai dang online khong
-
 func singeChat(c pb.ChatgRPCClient){
 
 	fmt.Print("nhap ten nguoi: ")
@@ -102,7 +72,7 @@ func singeChat(c pb.ChatgRPCClient){
 
 	if to_id.GetCheck() {
 		var req_cid pb.Request
-		req_cid.Request = to_id.GetId()
+		req_cid.Request = to_id.GetResponse()
 		req_cid.Sessionkey = sessionkey
 
 		//lay idconversation cua ban va nguoi nhan
@@ -111,15 +81,15 @@ func singeChat(c pb.ChatgRPCClient){
 		//cid := "1"
 		//fmt.Println("cid : ", cid)
 		var username pb.Request
-		username.Request = to_id.GetId()
+		username.Request = to_id.GetResponse()
 		username.Sessionkey = sessionkey
 		check, _ := c.CheckUser(context.Background(), &username)
 		//check.Check de xem ho co online ko
 		if check.GetCheck() {
-			chat(c, to_id.GetId(), cid.GetId())
+			chat(c, to_id.GetResponse(), cid.GetResponse())
 		} else {
 			fmt.Println("hien tai khong online, hay de lai loi nhan")
-			chatRieng(c,to_id.GetId(), cid.GetId())
+			chat(c,to_id.GetResponse(), cid.GetResponse())
 		}
 	}else {fmt.Println("ten khong ton tai")}
 }
@@ -152,20 +122,6 @@ func runDeleteMessage(c pb.ChatgRPCClient){
 	}
 
 }
-func runLoadWaittingMess(c pb.ChatgRPCClient){
-	//fmt.Println("tin nhan chua duoc doc")
-	var request pb.Request
-	request.Sessionkey = sessionkey
-	lstmess,err:=c.LoadWaittingMess(context.Background(),&request)
-
-	if err != nil {
-		log.Fatal("ListUser stream error: ", err)
-		return
-	}
-	for i:=0;i<len(lstmess.GetWaittingmess());i++{
-		fmt.Println(lstmess.GetWaittingmess()[i].GetFromName()," >> ",lstmess.GetWaittingmess()[i].GetContent())
-	}
-}
 
 func runLoadAllMessOnCid(c pb.ChatgRPCClient){
 
@@ -184,7 +140,7 @@ func runLoadAllMessOnCid(c pb.ChatgRPCClient){
 	request.Request = Cid
 	request.Id = Id
 
-	lstmess,err:=c.LoadAllMessOnCid(context.Background(),&request)
+	lstmess,err:=c.LoadMessOnCid(context.Background(),&request)
 
 	if err != nil {
 		log.Fatal("ListUser stream error: ", err)
@@ -192,7 +148,7 @@ func runLoadAllMessOnCid(c pb.ChatgRPCClient){
 	}
 
 	for i:=0;i<len(lstmess.GetAllmess());i++{
-		fmt.Println(lstmess.GetAllmess()[i].GetMid()," >> ",lstmess.GetAllmess()[i].GetFromName()," >> ",lstmess.GetAllmess()[i].GetContent(), ">>> ", lstmess.GetAllmess()[i].GetCheck())
+		fmt.Println(lstmess.GetAllmess()[i].GetMid()," >> ",lstmess.GetAllmess()[i].GetFromName()," >> ",lstmess.GetAllmess()[i].GetContent())
 
 	}
 }
@@ -249,8 +205,7 @@ func runLogin(c pb.ChatgRPCClient) {
 			//change session first
 			sessionkey = login.GetResponse()
 			fmt.Println("sessionkey: ",sessionkey)
-			//join chat
-			runLoadWaittingMess(c)
+
 			show := true
 			for show{
 				TopMenuChat()
@@ -335,7 +290,7 @@ func listenToClient(sendQ chan pb.Message, reader *bufio.Reader, idreceiver stri
 
 		t := strconv.Itoa(int(time.Now().UTC().UnixNano()))
 		//fmt.Println("createdtime: ", t)
-		sendQ <- pb.Message{Sessionkey:sessionkey, Content:mess, CreatedTime:t, ToUid:idreceiver, Cid:idconversation}
+		sendQ <- pb.Message{Sessionkey:sessionkey, Content:mess, CreatedTime:t, Cid:idconversation}
 	}
 }
 
@@ -385,24 +340,21 @@ func runGetListUser(c pb.ChatgRPCClient){
 	for i:=0;i<len(lstUser.GetAlluser());i++{
 		fmt.Println("Id: ",lstUser.GetAlluser()[i].GetUid()," >> ",lstUser.GetAlluser()[i].GetUsername(), " Active: ", lstUser.GetAlluser()[i].GetActive())
 	}
-
 }
 func runAddUidToConversation(c pb.ChatgRPCClient){
-	var req  pb.ConversationDetail
+	var req  pb.Request
 
 	fmt.Printf("Nhap uid: ")
 	reader := bufio.NewReader(os.Stdin)
 	uid, _ := reader.ReadString('\n')
 	uid = strings.TrimSpace(uid)
 
-	s_uid := strings.Split(uid, " ")
 	fmt.Printf("Nhap cid: ")
 	reader = bufio.NewReader(os.Stdin)
 	cid, _ := reader.ReadString('\n')
 	cid = strings.TrimSpace(cid)
 
-	req.Cid = cid
-	req.Uid = s_uid
+	req.Request = cid + "/" + uid
 	req.Sessionkey = sessionkey
 
 	check, _ := c.AddUidToConversation(context.Background(),&req)
@@ -421,7 +373,7 @@ func main() {
 	defer conn.Close()
 	//tao 1 c
 	c := pb.NewChatgRPCClient(conn)
-	//login(c,"Huyen", "432")
+	//runLogin((c,"Huyen", "432")
 
 	//Register(c)
 	//chat(c)
