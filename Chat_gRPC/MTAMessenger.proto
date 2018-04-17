@@ -105,7 +105,9 @@ message Conversation{
     string LastedTime=4;//lan cuoi cung nhan tin// dua vao day de sap xep cac cid
     string listusername=5;
     string lastMessage=3;
+    string lastMid =6;
 }
+
 message AllConversation{
     repeated Conversation listConversation=1;
 }

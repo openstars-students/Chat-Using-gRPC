@@ -86,6 +86,7 @@ func singeChat(c pb.ChatgRPCClient){
 		check, _ := c.CheckUser(context.Background(), &username)
 		//check.Check de xem ho co online ko
 		if check.GetCheck() {
+			fmt.Println(receiver," dang online, chat thoi: ")
 			chat(c, to_id.GetResponse(), cid.GetResponse())
 		} else {
 			fmt.Println("hien tai khong online, hay de lai loi nhan")
@@ -173,13 +174,12 @@ func runGetAllConversation(c pb.ChatgRPCClient){
 	}
 
 	for i:=0;i<len(lstCid.GetListConversation());i++{
-
 		fmt.Print("Cid: ",lstCid.GetListConversation()[i].GetCid())
 		fmt.Print("		username: ",lstCid.GetListConversation()[i].GetListusername())
+		fmt.Print("		Mid: ",lstCid.GetListConversation()[i].GetLastMid())
 		fmt.Print("		Content: ",lstCid.GetListConversation()[i].GetLastMessage())
 		fmt.Println("   	Time: ",lstCid.GetListConversation()[i].GetLastedTime())
 	}
-
 }
 func runLogin(c pb.ChatgRPCClient) {
 
@@ -354,7 +354,7 @@ func runAddUidToConversation(c pb.ChatgRPCClient){
 	cid, _ := reader.ReadString('\n')
 	cid = strings.TrimSpace(cid)
 
-	req.Request = cid + "/" + uid
+	req.Request = cid + " " + uid
 	req.Sessionkey = sessionkey
 
 	check, _ := c.AddUidToConversation(context.Background(),&req)
