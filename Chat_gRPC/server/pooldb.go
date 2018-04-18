@@ -11,7 +11,6 @@ import (
 	idbs "example/Chat-Using-gRPC/Chat_gRPC/thrift/gen-go/idgenerate"
 )
 
-
 //-----------truycap data---------------------
 func BigSetClientCreator(host, port string, connTimeout time.Duration, forPool* thriftpool.ThriftPool) (*thriftpool.ThriftSocketClient, error){
 	socket, err := thrift.NewTSocketTimeout(fmt.Sprintf("%s:%s", host, port), connTimeout)
@@ -86,13 +85,13 @@ func IdClientCreator(host, port string, connTimeout time.Duration, forPool* thri
 var (mpid=thriftpool.NewMapPool(100, 3600, 3600, IdClientCreator, close))
 
 func getValue(t string) int64{
-	idclient, _ := mpid.Get("192.168.0.6", "18405").Get()
+	idclient, _ := mpid.Get("192.168.43.230", "18405").Get()
 	defer idclient.BackToPool()
 	id, _ := idclient.Client.(*idbs.TGeneratorClient).GetValue(t)
 	return id
 }
 func getCurrentId(t string) int64{
-	idclient, _ := mpid.Get("192.168.0.6", "18405").Get()
+	idclient, _ := mpid.Get("192.168.43.230", "18405").Get()
 	defer idclient.BackToPool()
 	id, _ := idclient.Client.(*idbs.TGeneratorClient).GetCurrentValue(t)
 	return id
